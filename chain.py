@@ -1,37 +1,49 @@
-import os
-
-import streamlit as st
-
-from langchain_openai import OpenAI
-from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
+from template import STAGE_ANALYZER_INCEPTION_PROMPT,BASIC_TEMPLATE,RECOMMEND_TEMPLATE
 
-from template import BASIC_TEMPLATE
+class StageAnalyzerChain(LLMChain):
+    """通过查看聊天记录判断是否要转向推荐和销售阶段."""
 
-def build_chain(memory):
-    llm = OpenAI(
-        temperature=0,
-        # openai_api_key=os.getenv("OPENAI_API_KEY"),
-        openai_api_key=st.secrets['api']['key'],
-        # base_url=os.getenv("OPENAI_BASE_URL")
-        base_url=st.secrets['api']['base_url']
-    )
+    @classmethod
+    def from_llm(cls, llm, verbose: bool = True) -> LLMChain:
+        """Get the response parser."""
+        stage_analyzer_inception_prompt_template = STAGE_ANALYZER_INCEPTION_PROMPT
+        prompt = PromptTemplate(
+            template=stage_analyzer_inception_prompt_template,
+            input_variables=[
+                "conversation_history",
+                "question"
+            ],
+        )
+        return cls(prompt=prompt, llm=llm, verbose=verbose)
 
-    prompt = PromptTemplate.from_template(BASIC_TEMPLATE)
+class ConversationChain_Without_Tool(LLMChain):
+    #当用户没有明确的感兴趣话题时，用这个chain和用户闲聊
+    @classmethod
+    def from_llm(cls, llm, verbose: bool = True) -> LLMChain:
+        """Get the response parser."""
+        conversation_without_tools_template = BASIC_TEMPLATE
+        prompt = PromptTemplate(
+            template=conversation_without_tools_template,
+            input_variables=[
+                "conversation_history",
+            ],
+        )
+        return cls(prompt=prompt, llm=llm, verbose=verbose)
 
+class Recommend_Product(LLMChain):
+    #当用户有明确的感兴趣话题时，用这个chain查询产品库，看是否命中，如果命中则生成一个产品推荐信息
 
-    conversation = LLMChain(
-        llm=llm,
-        prompt=prompt,
-        verbose=True,
-        memory=memory,
+    @classmethod
+    def from_llm(cls, llm, verbose: bool = True) -> LLMChain:
+        """Get the response parser."""
+        conversation_without_tools_template = RECOMMEND_TEMPLATE
+        prompt = PromptTemplate(
+            template=conversation_without_tools_template,
+            input_variables=[
+                "conversation_history",
+            ],
+        )
+        return cls(prompt=prompt, llm=llm, verbose=verbose)
 
-    )
-
-    return conversation
-
-def generate_response(chain,input_text):
-
-    response = chain.invoke(input_text)
-    return  response
